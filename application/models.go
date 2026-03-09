@@ -85,29 +85,48 @@ type LambdaIngestRequest struct {
 }
 
 // ── S3 ──────────────────────────────────────────────────────────────────────
-
 // S3Metric represents a single metrics snapshot from an S3 bucket.
 type S3Metric struct {
-	ID               int64     `json:"id"                db:"id"`
-	BucketID         string    `json:"bucket_id"         db:"bucket_id"`
-	StorageUsedBytes int64     `json:"storage_used_bytes" db:"storage_used_bytes"`
-	ObjectCount      int64     `json:"object_count"      db:"object_count"`
-	GetRequests      int64     `json:"get_requests"      db:"get_requests"`
-	PutRequests      int64     `json:"put_requests"      db:"put_requests"`
-	BytesDownloaded  int64     `json:"bytes_downloaded"  db:"bytes_downloaded"`
-	BytesUploaded    int64     `json:"bytes_uploaded"    db:"bytes_uploaded"`
-	CreatedAt        time.Time `json:"created_at"        db:"created_at"`
+	ID               int64     `json:"id"                 db:"id"`
+	BucketID         string    `json:"bucket_id"          db:"bucket_id"`
+	OwnerID          string    `json:"owner_id"           db:"owner_id"` // 👈 Crucial for billing
+	Region           string    `json:"region"             db:"region"`   // 👈 Crucial for regional pricing
+	
+	// Capacity Metrics
+	StorageUsedBytes int64     `json:"storage_used_bytes"  db:"storage_used_bytes"`
+	ObjectCount      int64     `json:"object_count"       db:"object_count"`
+	
+	// Operation Count Metrics (Granular Tier-based)
+	GetRequests    int64 `json:"get_requests"    db:"get_requests"`    // Tier 2
+	PutRequests    int64 `json:"put_requests"    db:"put_requests"`    // Tier 1
+	ListRequests   int64 `json:"list_requests"   db:"list_requests"`   // Tier 2
+	DeleteRequests int64 `json:"delete_requests" db:"delete_requests"` // Free/Tier 1 depending on policy
+	HeadRequests   int64 `json:"head_requests"   db:"head_requests"`   // Tier 2
+	
+	// Bandwidth Metrics (The "Flow")
+	BytesDownloaded int64 `json:"bytes_downloaded" db:"bytes_downloaded"`
+	BytesUploaded   int64 `json:"bytes_uploaded"   db:"bytes_uploaded"`
+	
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
 // S3IngestRequest is the payload for ingesting S3 metrics.
 type S3IngestRequest struct {
 	BucketID         string `json:"bucket_id"`
-	StorageUsedBytes int64  `json:"storage_used_bytes"`
-	ObjectCount      int64  `json:"object_count"`
-	GetRequests      int64  `json:"get_requests"`
-	PutRequests      int64  `json:"put_requests"`
-	BytesDownloaded  int64  `json:"bytes_downloaded"`
-	BytesUploaded    int64  `json:"bytes_uploaded"`
+	OwnerID          string `json:"owner_id"`
+	Region           string `json:"region"`
+	
+	StorageUsedBytes int64 `json:"storage_used_bytes"`
+	ObjectCount      int64 `json:"object_count"`
+	
+	GetRequests    int64 `json:"get_requests"`
+	PutRequests    int64 `json:"put_requests"`
+	ListRequests   int64 `json:"list_requests"`
+	DeleteRequests int64 `json:"delete_requests"`
+	HeadRequests   int64 `json:"head_requests"`
+	
+	BytesDownloaded int64 `json:"bytes_downloaded"`
+	BytesUploaded   int64 `json:"bytes_uploaded"`
 }
 
 // ── SageMaker ───────────────────────────────────────────────────────────────
