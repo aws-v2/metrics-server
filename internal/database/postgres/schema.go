@@ -122,4 +122,44 @@ CREATE TABLE IF NOT EXISTS gamelift_metrics (
 
 CREATE INDEX IF NOT EXISTS idx_gamelift_metrics_fleet_id   ON gamelift_metrics (fleet_id);
 CREATE INDEX IF NOT EXISTS idx_gamelift_metrics_created_at ON gamelift_metrics (created_at);
+
+-- ── RDS Scaling Policies ────────────────────────────────────────────────────
+DROP TABLE IF EXISTS rds_scaling_policies;
+CREATE TABLE IF NOT EXISTS rds_scaling_policies (
+    id                 TEXT             PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    tenant_id          TEXT             NOT NULL,
+    instance_id        TEXT             NOT NULL,
+    metric_name        TEXT             NOT NULL, -- CPUUtilization, MemoryUtilization
+    scale_up_threshold DOUBLE PRECISION NOT NULL,
+    scale_down_threshold DOUBLE PRECISION NOT NULL,
+    max_limit          DOUBLE PRECISION NOT NULL, -- e.g. 4.0 (CPU) or 8192 (MB)
+    min_limit          DOUBLE PRECISION NOT NULL,
+    scale_step         DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    cooldown_seconds   BIGINT           NOT NULL DEFAULT 300,
+    created_at         TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    UNIQUE(instance_id, metric_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rds_scaling_policies_tenant_id ON rds_scaling_policies (tenant_id);
+
+-- ── Lambda Scaling Policies ─────────────────────────────────────────────────
+DROP TABLE IF EXISTS lambda_scaling_policies;
+CREATE TABLE IF NOT EXISTS lambda_scaling_policies (
+    id                     TEXT             PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    tenant_id              TEXT             NOT NULL,
+    function_id            TEXT             NOT NULL,
+    metric_name            TEXT             NOT NULL,
+    scale_up_threshold     DOUBLE PRECISION NOT NULL,
+    scale_down_threshold   DOUBLE PRECISION NOT NULL,
+    max_concurrency_limit  BIGINT           NOT NULL,
+    min_concurrency_limit  BIGINT           NOT NULL,
+    scale_step             BIGINT           NOT NULL DEFAULT 10,
+    cooldown_seconds       BIGINT           NOT NULL DEFAULT 60,
+    created_at             TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    UNIQUE(function_id, metric_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lambda_scaling_policies_tenant_id ON lambda_scaling_policies (tenant_id);
 `

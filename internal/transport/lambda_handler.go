@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"fmt"
 
 	"metrics-gateway/application"
 )
@@ -21,6 +22,7 @@ func NewLambdaHandler(logger *slog.Logger, service application.LambdaMetricsServ
 
 // Ingest handles POST /api/v1/metrics-server/lambda/ingest
 func (h *LambdaHandler) Ingest(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Lambda ingest request received")
 	var req application.LambdaIngestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.Error("invalid Lambda ingest payload", "error", err)

@@ -49,22 +49,43 @@ func (s *LambdaScaler) evaluate() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	candidates, err := s.repo.GetLambdaFunctionsToScaleUp(ctx)
+	upCandidates, err := s.repo.GetLambdaFunctionsToScaleUp(ctx)
 	if err != nil {
-		s.logger.Error("failed to get Lambda scale candidates", "error", err)
-		return
+		s.logger.Error("failed to get Lambda scale up candidates", "error", err)
+	} else {
+		for _, c := range upCandidates {
+			s.logger.Info("Lambda scale out triggered", "function", c.FunctionID, "metric", c.MetricName, "value", c.AvgMetricValue)
+			
+			payload, _ := json.Marshal(map[string]interface{}{
+				"tenant_id":   c.TenantID,
+				"function_id": c.FunctionID,
+				"reason":      "metric_above_threshold",
+				"metric":      c.MetricName,
+				"value":       c.AvgMetricValue,
+				"action":      "INCREASE_PROVISIONED_CONCURRENCY",
+			})
+			
+			_ = s.nc.Publish("dev.lambda.v1.scale.out", payload)
+		}
 	}
 
-	for _, c := range candidates {
-		s.logger.Info("Lambda scale/provisioned concurrency triggered", "function", c.FunctionID, "throttles", c.TotalThrottles)
-		
-		payload, _ := json.Marshal(map[string]interface{}{
-			"function_id": c.FunctionID,
-			"reason":      "high_throttles",
-			"throttles":   c.TotalThrottles,
-			"action":      "INCREASE_PROVISIONED_CONCURRENCY",
-		})
-		
-		_ = s.nc.Publish("dev.lambda.v1.scale.concurrency", payload)
+	downCandidates, err := s.repo.GetLambdaFunctionsToScaleDown(ctx)
+	if err != nil {
+		s.logger.Error("failed to get Lambda scale down candidates", "error", err)
+	} else {
+		for _, c := range downCandidates {
+			s.logger.Info("Lambda scale in triggered", "function", c.FunctionID, "metric", c.MetricName, "value", c.AvgMetricValue)
+			
+			payload, _ := json.Marshal(map[string]interface{}{
+				"tenant_id":   c.TenantID,
+				"function_id": c.FunctionID,
+				"reason":      "metric_below_threshold",
+				"metric":      c.MetricName,
+				"value":       c.AvgMetricValue,
+				"action":      "DECREASE_PROVISIONED_CONCURRENCY",
+			})
+			
+			_ = s.nc.Publish("dev.lambda.v1.scale.in", payload)
+		}
 	}
 }
