@@ -392,6 +392,7 @@ func (h *ScalingPolicyNATSHandler) handleCreateLambdaPolicy(msg *nats.Msg) {
 	var event LambdaScalingPolicyCreateEvent
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
 		h.logger.Error("failed to decode Lambda scaling policy create request", "error", err)
+		h.replyLambdaError(msg, "invalid request format")
 		return
 	}
 
@@ -400,6 +401,7 @@ func (h *ScalingPolicyNATSHandler) handleCreateLambdaPolicy(msg *nats.Msg) {
 
 	if req.FunctionID == "" || req.ScaleUpThreshold <= 0 || req.MetricName == "" || req.TenantID == "" {
 		h.logger.Error("invalid Lambda scaling policy create payload", "tenant_id", event.TenantID)
+		h.replyLambdaError(msg, "invalid payload")
 		return
 	}
 
@@ -408,21 +410,25 @@ func (h *ScalingPolicyNATSHandler) handleCreateLambdaPolicy(msg *nats.Msg) {
 
 	if err := h.repo.CreateLambdaScalingPolicy(ctx, req); err != nil {
 		h.logger.Error("failed to save dynamic Lambda scaling policy", "error", err, "function_id", req.FunctionID)
+		h.replyLambdaError(msg, "failed to create policy")
 		return
 	}
 
 	h.logger.Info("successfully created Lambda scaling policy", "tenant_id", req.TenantID, "function_id", req.FunctionID)
+	msg.Respond([]byte(`{"message": "success"}`))
 }
 
 func (h *ScalingPolicyNATSHandler) handleUpdateLambdaPolicy(msg *nats.Msg) {
 	var event LambdaScalingPolicyUpdateEvent
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
 		h.logger.Error("failed to decode Lambda scaling policy update request", "error", err)
+		h.replyLambdaError(msg, "invalid request format")
 		return
 	}
 
 	if event.TenantID == "" || event.FunctionID == "" || event.MetricName == "" {
 		h.logger.Error("invalid Lambda scaling policy update payload", "tenant_id", event.TenantID)
+		h.replyLambdaError(msg, "invalid payload")
 		return
 	}
 
@@ -431,21 +437,25 @@ func (h *ScalingPolicyNATSHandler) handleUpdateLambdaPolicy(msg *nats.Msg) {
 
 	if err := h.repo.UpdateLambdaScalingPolicy(ctx, event.TenantID, event.FunctionID, event.MetricName, event.Update.ScaleUpThreshold, event.Update.ScaleDownThreshold, event.Update.MaxConcurrencyLimit, event.Update.MinConcurrencyLimit, event.Update.ScaleStep, event.Update.CooldownSeconds); err != nil {
 		h.logger.Error("failed to update dynamic Lambda scaling policy", "error", err, "function_id", event.FunctionID)
+		h.replyLambdaError(msg, "failed to update policy")
 		return
 	}
 
 	h.logger.Info("successfully updated Lambda scaling policy", "tenant_id", event.TenantID, "function_id", event.FunctionID)
+	msg.Respond([]byte(`{"message": "success"}`))
 }
 
 func (h *ScalingPolicyNATSHandler) handleDeleteLambdaPolicy(msg *nats.Msg) {
 	var event LambdaScalingPolicyDeleteEvent
 	if err := json.Unmarshal(msg.Data, &event); err != nil {
 		h.logger.Error("failed to decode Lambda scaling policy delete request", "error", err)
+		h.replyLambdaError(msg, "invalid request format")
 		return
 	}
 
 	if event.TenantID == "" || event.FunctionID == "" || event.MetricName == "" {
 		h.logger.Error("invalid Lambda scaling policy delete payload", "tenant_id", event.TenantID)
+		h.replyLambdaError(msg, "invalid payload")
 		return
 	}
 
@@ -454,10 +464,12 @@ func (h *ScalingPolicyNATSHandler) handleDeleteLambdaPolicy(msg *nats.Msg) {
 
 	if err := h.repo.DeleteLambdaScalingPolicy(ctx, event.TenantID, event.FunctionID, event.MetricName); err != nil {
 		h.logger.Error("failed to delete dynamic Lambda scaling policy", "error", err, "function_id", event.FunctionID)
+		h.replyLambdaError(msg, "failed to delete policy")
 		return
 	}
 
 	h.logger.Info("successfully deleted Lambda scaling policy", "tenant_id", event.TenantID, "function_id", event.FunctionID)
+	msg.Respond([]byte(`{"message": "success"}`))
 }
 
 func (h *ScalingPolicyNATSHandler) handleListLambdaPolicies(msg *nats.Msg) {
