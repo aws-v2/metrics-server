@@ -29,7 +29,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o metrics-gatew
 go run cmd/api/main.go
 ```
 
-The server starts on **port 8099** by default.
+The server starts on **port 8085** by default.
 
 ## Environment Variables
 
@@ -42,7 +42,7 @@ The server starts on **port 8099** by default.
 | `DB_NAME` | `metrics_db` | Database name |
 | `DB_SSLMODE` | `disable` | SSL mode |
 | `NATS_URL` | `nats://auth-server:auth-secret@localhost:4222` | NATS server URL |
-| `HTTP_PORT` | `8099` | HTTP server port |
+| `HTTP_PORT` | `8085` | HTTP server port |
 
 ## Endpoints
 

@@ -62,9 +62,9 @@ func Load() (*Config, error) {
 			Password: getEnv("NATS_PASSWORD", ""),
 		},
 		Server: ServerConfig{
-			Port:                getEnv("PORT", "8099"),
+			Port:                getEnv("PORT", "8085"),
 			ServiceName:         getEnv("SERVICE_NAME", "metrics-gateway"),
-			HTTPPort:            getEnvInt("HTTP_PORT", 8099),
+			HTTPPort:            getEnvInt("HTTP_PORT", 8085),
 			InstanceTokenSecret: getEnv("INSTANCE_TOKEN_SECRET", "6A576E5A7234753778214125442A472D4B6150645367566B5970337336763979"),
 		},
 	}

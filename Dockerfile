@@ -30,7 +30,7 @@ RUN apk --no-cache add ca-certificates
 COPY --from=builder /app/metrics-service .
 
 # Expose the port
-EXPOSE 8099
+EXPOSE 8085
 
 # Run the binary
 CMD ["./metrics-service"]
