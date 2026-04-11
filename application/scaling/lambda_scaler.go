@@ -7,22 +7,31 @@ import (
 	"time"
 
 	"metrics-gateway/repository"
+	"metrics-gateway/internal/messaging"
 
 	"github.com/nats-io/nats.go"
 )
 
 // LambdaScaler periodically checks Lambda metrics and triggers scale events via NATS.
 type LambdaScaler struct {
-	logger *slog.Logger
-	nc     *nats.Conn
-	repo   *repository.PostgresRepository
-	ctx    context.Context
-	cancel context.CancelFunc
+	logger  *slog.Logger
+	nc      *nats.Conn
+	repo    *repository.PostgresRepository
+	ctx     context.Context
+	cancel  context.CancelFunc
+	profile string
 }
 
-func NewLambdaScaler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository) *LambdaScaler {
+func NewLambdaScaler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository, profile string) *LambdaScaler {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &LambdaScaler{logger: logger, nc: nc, repo: repo, ctx: ctx, cancel: cancel}
+	return &LambdaScaler{
+		logger:  logger,
+		nc:      nc,
+		repo:    repo,
+		ctx:     ctx,
+		cancel:  cancel,
+		profile: profile,
+	}
 }
 
 func (s *LambdaScaler) Start() {
@@ -65,7 +74,7 @@ func (s *LambdaScaler) evaluate() {
 				"action":      "INCREASE_PROVISIONED_CONCURRENCY",
 			})
 			
-			_ = s.nc.Publish("dev.lambda.v1.scale.out", payload)
+			_ = s.nc.Publish(messaging.BuildSubject(s.profile, "lambda", "v1", "scale", "out"), payload)
 		}
 	}
 
@@ -85,7 +94,7 @@ func (s *LambdaScaler) evaluate() {
 				"action":      "DECREASE_PROVISIONED_CONCURRENCY",
 			})
 			
-			_ = s.nc.Publish("dev.lambda.v1.scale.in", payload)
+			_ = s.nc.Publish(messaging.BuildSubject(s.profile, "lambda", "v1", "scale", "in"), payload)
 		}
 	}
 }

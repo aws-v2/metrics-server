@@ -7,28 +7,31 @@ import (
 	"time"
 
 	"metrics-gateway/repository"
+	"metrics-gateway/internal/messaging"
 
 	"github.com/nats-io/nats.go"
 )
 
 // EC2Scaler periodically checks EC2 metrics and triggers scale events via NATS.
 type EC2Scaler struct {
-	logger *slog.Logger
-	nc     *nats.Conn
-	repo   *repository.PostgresRepository
-	ctx    context.Context
-	cancel context.CancelFunc
+	logger  *slog.Logger
+	nc      *nats.Conn
+	repo    *repository.PostgresRepository
+	ctx     context.Context
+	cancel  context.CancelFunc
+	profile string
 }
 
 // NewEC2Scaler initializes the scaler.
-func NewEC2Scaler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository) *EC2Scaler {
+func NewEC2Scaler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository, profile string) *EC2Scaler {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &EC2Scaler{
-		logger: logger,
-		nc:     nc,
-		repo:   repo,
-		ctx:    ctx,
-		cancel: cancel,
+		logger:  logger,
+		nc:      nc,
+		repo:    repo,
+		ctx:     ctx,
+		cancel:  cancel,
+		profile: profile,
 	}
 }
 
@@ -100,7 +103,7 @@ func (s *EC2Scaler) evaluate() {
 		
 		payload, _ := json.Marshal(alarm)
 		
-		_ = s.nc.Publish("dev.ec2.v1.scale.out", payload)
+		_ = s.nc.Publish(messaging.BuildSubject(s.profile, "ec2", "v1", "scale", "out"), payload)
 	}
 
 	downCandidates, err := s.repo.GetEC2InstancesToScaleDown(ctx)
@@ -127,6 +130,6 @@ func (s *EC2Scaler) evaluate() {
 
 		payload, _ := json.Marshal(alarm)
 
-		_ = s.nc.Publish("dev.ec2.v1.scale.in", payload)
+		_ = s.nc.Publish(messaging.BuildSubject(s.profile, "ec2", "v1", "scale", "in"), payload)
 	}
 }

@@ -8,29 +8,32 @@ import (
 	"time"
 
 	"metrics-gateway/application"
+	"metrics-gateway/internal/messaging"
 
 	"github.com/nats-io/nats.go"
 )
 
 // BillingNATSHandler listens to NATS and responds to billing aggregation requests.
 type BillingNATSHandler struct {
-	logger *slog.Logger
-	nc     *nats.Conn
-	svc    application.BillingService
+	logger  *slog.Logger
+	nc      *nats.Conn
+	svc     application.BillingService
+	profile string
 }
 
 // NewBillingNATSHandler creates a new handler.
-func NewBillingNATSHandler(logger *slog.Logger, nc *nats.Conn, svc application.BillingService) *BillingNATSHandler {
+func NewBillingNATSHandler(logger *slog.Logger, nc *nats.Conn, svc application.BillingService, profile string) *BillingNATSHandler {
 	return &BillingNATSHandler{
-		logger: logger,
-		nc:     nc,
-		svc:    svc,
+		logger:  logger,
+		nc:      nc,
+		svc:     svc,
+		profile: profile,
 	}
 }
 
 // Start subscribes to the billing subject.
 func (h *BillingNATSHandler) Start() error {
-	subject := "dev.metrics.v1.billing.usage.get"
+	subject := messaging.BuildSubject(h.profile, "metrics", "v1", "billing", "usage.get")
 	_, err := h.nc.Subscribe(subject, h.handleBillingRequest)
 	if err != nil {
 		return err

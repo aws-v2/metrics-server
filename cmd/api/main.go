@@ -28,35 +28,52 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// Inject profile into logger for all subsequent logs
+	logger = logger.With("profile", cfg.AppProfile)
+
 	if cfg.Server.InstanceTokenSecret == "" {
 		log.Fatal("INSTANCE_TOKEN_SECRET environment variable must be set")
 	}
 
-	// ── 2. Initialize PostgreSQL ─────────────────────────────────────────────
-	postgresConn := cfg.DB.ConnectionString()
-	log.Println("Initializing PostgreSQL repository...")
-	db, err := database.NewPostgresDB(postgresConn)
-	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+	// ── 2. Initialize NATS ───────────────────────────────────────────────────
+	natsHost, natsPort := cfg.NATS.HostPort()
+	if err := config.CheckReachability(natsHost, natsPort, "NATS", cfg.AppProfile); err != nil {
+		logger.Error("NATS reachability check failed", "error", err)
+		os.Exit(1)
 	}
-	defer db.Close()
 
-	log.Println("Running database migrations...")
-	if err := database.Migrate(db, postgres.Schema); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
-	}
-	log.Println("Database migration completed successfully")
-
-	// ── 3. Initialize NATS ───────────────────────────────────────────────────
-	log.Println("Connecting to NATS...")
+	logger.Info("connecting to NATS")
 	natsClient, err := messaging.NewClient(cfg.NATS.URL, cfg.NATS.User, cfg.NATS.Password)
 	if err != nil {
-		log.Fatalf("Failed to connect to NATS: %v", err)
+		logger.Error("failed to connect to NATS", "error", err)
+		os.Exit(1)
 	}
 	defer natsClient.Close()
 
 	// Example: build a subject following the norms
-	_ = messaging.BuildSubject("dev", messaging.ServiceName, messaging.Version, "metric", "ingested")
+	_ = messaging.BuildSubject(cfg.AppProfile, messaging.ServiceName, messaging.Version, "metric", "ingested")
+
+	// ── 3. Initialize PostgreSQL ─────────────────────────────────────────────
+	logger.Info("initializing PostgreSQL repository")
+	if err := config.CheckReachability(cfg.DB.Host, cfg.DB.Port, "PostgreSQL", cfg.AppProfile); err != nil {
+		logger.Error("database reachability check failed", "error", err)
+		os.Exit(1)
+	}
+
+	postgresConn := cfg.DB.ConnectionString()
+	db, err := database.NewPostgresDB(postgresConn)
+	if err != nil {
+		logger.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	logger.Info("running database migrations")
+	if err := database.Migrate(db, postgres.Schema); err != nil {
+		logger.Error("failed to migrate database", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("database migration completed successfully")
 
 	// ── 4. Initialize Layers ─────────────────────────────────────────────────
 	repo := repository.NewPostgresRepository(db)
@@ -94,16 +111,16 @@ func main() {
 
 	// ── 5. Initialize Billing Service ────────────────────────────────────────
 	billingService := application.NewBillingService(logger, repo)
-	billingNATSHandler := transport.NewBillingNATSHandler(logger, natsClient.Conn, billingService)
+	billingNATSHandler := transport.NewBillingNATSHandler(logger, natsClient.Conn, billingService, cfg.AppProfile)
 	if err := billingNATSHandler.Start(); err != nil {
 		logger.Error("failed to start billing NATS handler", "error", err)
 	}
 
 	// ── 6. Initialize Scaling Modules ────────────────────────────────────────
-	ec2Scaler := scaling.NewEC2Scaler(logger, natsClient.Conn, repo)
-	rdsScaler := scaling.NewRDSScaler(logger, natsClient.Conn, repo)
-	lambdaScaler := scaling.NewLambdaScaler(logger, natsClient.Conn, repo)
-	s3Scaler := scaling.NewS3Scaler(logger, natsClient.Conn, repo)
+	ec2Scaler := scaling.NewEC2Scaler(logger, natsClient.Conn, repo, cfg.AppProfile)
+	rdsScaler := scaling.NewRDSScaler(logger, natsClient.Conn, repo, cfg.AppProfile)
+	lambdaScaler := scaling.NewLambdaScaler(logger, natsClient.Conn, repo, cfg.AppProfile)
+	s3Scaler := scaling.NewS3Scaler(logger, natsClient.Conn, repo, cfg.AppProfile)
 
 	ec2Scaler.Start()
 	rdsScaler.Start()
@@ -111,7 +128,7 @@ func main() {
 	s3Scaler.Start()
 	logger.Info("all scaling background workers started")
 
-	scalingPolicyHandler := transport.NewScalingPolicyNATSHandler(logger, natsClient.Conn, repo)
+	scalingPolicyHandler := transport.NewScalingPolicyNATSHandler(logger, natsClient.Conn, repo, cfg.AppProfile)
 	if err := scalingPolicyHandler.Start(); err != nil {
 		logger.Error("failed to start scaling policy NATS handler", "error", err)
 	}

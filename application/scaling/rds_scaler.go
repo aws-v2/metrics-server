@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"time"
 
+	"metrics-gateway/internal/messaging"
 	"metrics-gateway/repository"
 
 	"github.com/nats-io/nats.go"
@@ -13,16 +15,24 @@ import (
 
 // RDSScaler periodically checks RDS metrics and triggers scale events via NATS.
 type RDSScaler struct {
-	logger *slog.Logger
-	nc     *nats.Conn
-	repo   *repository.PostgresRepository
-	ctx    context.Context
-	cancel context.CancelFunc
+	logger  *slog.Logger
+	nc      *nats.Conn
+	repo    *repository.PostgresRepository
+	ctx     context.Context
+	cancel  context.CancelFunc
+	profile string
 }
 
-func NewRDSScaler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository) *RDSScaler {
+func NewRDSScaler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository, profile string) *RDSScaler {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &RDSScaler{logger: logger, nc: nc, repo: repo, ctx: ctx, cancel: cancel}
+	return &RDSScaler{
+		logger:  logger,
+		nc:      nc,
+		repo:    repo,
+		ctx:     ctx,
+		cancel:  cancel,
+		profile: profile,
+	}
 }
 
 func (s *RDSScaler) Start() {
@@ -93,11 +103,6 @@ func (s *RDSScaler) handleScaling(c repository.RDSVerticalScaleCandidate, action
 		"metric", c.MetricName,
 		"avg_value", c.AvgMetricValue)
 
-	subject := "dev.rds.v1.scale.out"
-	if action == "SCALE_IN" {
-		subject = "dev.rds.v1.scale.in"
-	}
-
 	payload := RDSVerticalScaleAlarmPayload{
 		InstanceID:   c.InstanceID,
 		Action:       action,
@@ -108,8 +113,15 @@ func (s *RDSScaler) handleScaling(c repository.RDSVerticalScaleCandidate, action
 	}
 
 	data, _ := json.Marshal(payload)
-	if err := s.nc.Publish(subject, data); err != nil {
-		s.logger.Error("failed to publish RDS scale alarm", "error", err, "subject", subject)
+	sub := messaging.BuildSubject(s.profile, "rds", "v1", "scale", strings.ToLower(action))
+	if action == "SCALE_OUT" {
+		sub = messaging.BuildSubject(s.profile, "rds", "v1", "scale", "out")
+	} else if action == "SCALE_IN" {
+		sub = messaging.BuildSubject(s.profile, "rds", "v1", "scale", "in")
+	}
+
+	if err := s.nc.Publish(sub, data); err != nil {
+		s.logger.Error("failed to publish RDS scale alarm", "error", err, "subject", sub)
 		return
 	}
 

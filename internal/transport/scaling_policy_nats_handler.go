@@ -8,23 +8,26 @@ import (
 	"time"
 
 	"metrics-gateway/repository"
+	"metrics-gateway/internal/messaging"
 
 	"github.com/nats-io/nats.go"
 )
 
 // ScalingPolicyNATSHandler listens for events to create or update dynamic scaling policies.
 type ScalingPolicyNATSHandler struct {
-	logger *slog.Logger
-	nc     *nats.Conn
-	repo   *repository.PostgresRepository
+	logger  *slog.Logger
+	nc      *nats.Conn
+	repo    *repository.PostgresRepository
+	profile string
 }
 
 // NewScalingPolicyNATSHandler creates a new handler.
-func NewScalingPolicyNATSHandler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository) *ScalingPolicyNATSHandler {
+func NewScalingPolicyNATSHandler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository, profile string) *ScalingPolicyNATSHandler {
 	return &ScalingPolicyNATSHandler{
-		logger: logger,
-		nc:     nc,
-		repo:   repo,
+		logger:  logger,
+		nc:      nc,
+		repo:    repo,
+		profile: profile,
 	}
 }
 
@@ -33,18 +36,18 @@ func (h *ScalingPolicyNATSHandler) Start() error {
 	queueGroup := "metrics-service"
 
 	subs := map[string]nats.MsgHandler{
-		"dev.metrics.v1.scaling_policy.create": h.handleCreatePolicy,
-		"dev.metrics.v1.scaling_policy.update": h.handleUpdatePolicy,
-		"dev.metrics.v1.scaling_policy.delete": h.handleDeletePolicy,
-		"dev.metrics.v1.scaling_policy.list":   h.handleListPolicies,
-		"dev.rds.v1.scaling_policy.create":     h.handleCreateRDSPolicy,
-		"dev.rds.v1.scaling_policy.update":     h.handleUpdateRDSPolicy,
-		"dev.rds.v1.scaling_policy.delete":     h.handleDeleteRDSPolicy,
-		"dev.rds.v1.scaling_policy.list":       h.handleListRDSPolicies,
-		"dev.lambda.v1.scaling_policy.create":  h.handleCreateLambdaPolicy,
-		"dev.lambda.v1.scaling_policy.update":  h.handleUpdateLambdaPolicy,
-		"dev.lambda.v1.scaling_policy.delete":  h.handleDeleteLambdaPolicy,
-		"dev.lambda.v1.scaling_policy.list":    h.handleListLambdaPolicies,
+		messaging.BuildSubject(h.profile, "metrics", "v1", "scaling_policy", "create"): h.handleCreatePolicy,
+		messaging.BuildSubject(h.profile, "metrics", "v1", "scaling_policy", "update"): h.handleUpdatePolicy,
+		messaging.BuildSubject(h.profile, "metrics", "v1", "scaling_policy", "delete"): h.handleDeletePolicy,
+		messaging.BuildSubject(h.profile, "metrics", "v1", "scaling_policy", "list"):   h.handleListPolicies,
+		messaging.BuildSubject(h.profile, "rds", "v1", "scaling_policy", "create"):     h.handleCreateRDSPolicy,
+		messaging.BuildSubject(h.profile, "rds", "v1", "scaling_policy", "update"):     h.handleUpdateRDSPolicy,
+		messaging.BuildSubject(h.profile, "rds", "v1", "scaling_policy", "delete"):     h.handleDeleteRDSPolicy,
+		messaging.BuildSubject(h.profile, "rds", "v1", "scaling_policy", "list"):       h.handleListRDSPolicies,
+		messaging.BuildSubject(h.profile, "lambda", "v1", "scaling_policy", "create"):  h.handleCreateLambdaPolicy,
+		messaging.BuildSubject(h.profile, "lambda", "v1", "scaling_policy", "update"):  h.handleUpdateLambdaPolicy,
+		messaging.BuildSubject(h.profile, "lambda", "v1", "scaling_policy", "delete"):  h.handleDeleteLambdaPolicy,
+		messaging.BuildSubject(h.profile, "lambda", "v1", "scaling_policy", "list"):    h.handleListLambdaPolicies,
 	}
 
 	for subject, handler := range subs {

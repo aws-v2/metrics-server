@@ -7,22 +7,31 @@ import (
 	"time"
 
 	"metrics-gateway/repository"
+	"metrics-gateway/internal/messaging"
 
 	"github.com/nats-io/nats.go"
 )
 
 // S3Scaler periodically checks S3 metrics and triggers lifecycle or storage scale events via NATS.
 type S3Scaler struct {
-	logger *slog.Logger
-	nc     *nats.Conn
-	repo   *repository.PostgresRepository
-	ctx    context.Context
-	cancel context.CancelFunc
+	logger  *slog.Logger
+	nc      *nats.Conn
+	repo    *repository.PostgresRepository
+	ctx     context.Context
+	cancel  context.CancelFunc
+	profile string
 }
 
-func NewS3Scaler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository) *S3Scaler {
+func NewS3Scaler(logger *slog.Logger, nc *nats.Conn, repo *repository.PostgresRepository, profile string) *S3Scaler {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &S3Scaler{logger: logger, nc: nc, repo: repo, ctx: ctx, cancel: cancel}
+	return &S3Scaler{
+		logger:  logger,
+		nc:      nc,
+		repo:    repo,
+		ctx:     ctx,
+		cancel:  cancel,
+		profile: profile,
+	}
 }
 
 func (s *S3Scaler) Start() {
@@ -65,6 +74,6 @@ func (s *S3Scaler) evaluate() {
 			"action":       "ALLOCATE_MORE_STORAGE",
 		})
 		
-		_ = s.nc.Publish("dev.s3.v1.scale.storage", payload)
+		_ = s.nc.Publish(messaging.BuildSubject(s.profile, "s3", "v1", "lifecycle", "transition"), payload)
 	}
 }

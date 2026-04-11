@@ -1,17 +1,22 @@
 package config
 
 import (
+	"fmt"
+	"log"
+	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	DB     DBConfig
-	NATS   NATSConfig
-	Server ServerConfig
+	DB         DBConfig
+	NATS       NATSConfig
+	Server     ServerConfig
+	AppProfile string
 }
 
 type DBConfig struct {
@@ -33,6 +38,25 @@ type NATSConfig struct {
 	Password string
 }
 
+func (n NATSConfig) HostPort() (string, int) {
+	rem := n.URL
+	if i := strings.Index(rem, "://"); i != -1 {
+		rem = rem[i+3:]
+	}
+	if i := strings.Index(rem, "@"); i != -1 {
+		rem = rem[i+1:]
+	}
+	parts := strings.Split(rem, ":")
+	host := parts[0]
+	port := 4222
+	if len(parts) > 1 {
+		if p, err := strconv.Atoi(parts[1]); err == nil {
+			port = p
+		}
+	}
+	return host, port
+}
+
 type ServerConfig struct {
 	Port                string
 	ServiceName         string
@@ -43,7 +67,20 @@ type ServerConfig struct {
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
+	appProfile := getEnv("APP_PROFILE", "dev")
+	log.Printf("Loading configuration for profile: %s", appProfile)
+
+	natsUser := getEnv("NATS_USER", "")
+	natsPassword := getEnv("NATS_PASSWORD", "")
+
+	// Standardize NATS credentials for dev/staging if not provided
+	if (appProfile == "dev" || appProfile == "staging") && natsUser == "" {
+		natsUser = "auth-server"
+		natsPassword = "auth-secret"
+	}
+
 	cfg := &Config{
+		AppProfile: appProfile,
 		DB: DBConfig{
 			Host:            getEnv("DB_HOST", "localhost"),
 			Port:            getEnvInt("DB_PORT", 5432),
@@ -57,9 +94,9 @@ func Load() (*Config, error) {
 			ConnMaxIdleTime: getEnvDuration("DB_CONN_MAX_IDLE_TIME", 10*time.Minute),
 		},
 		NATS: NATSConfig{
-			URL:      getEnv("NATS_URL", getEnv("DEV_NATS_URL", "nats://auth-server:auth-secret@localhost:4222")),
-			User:     getEnv("NATS_USER", ""),
-			Password: getEnv("NATS_PASSWORD", ""),
+			URL:      getEnv("NATS_URL", getEnv("DEV_NATS_URL", "nats://localhost:4222")),
+			User:     natsUser,
+			Password: natsPassword,
 		},
 		Server: ServerConfig{
 			Port:                getEnv("PORT", "8085"),
@@ -104,4 +141,28 @@ func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
 		}
 	}
 	return defaultVal
+}
+
+// CheckReachability performs a TCP reachability check with retries.
+func CheckReachability(host string, port int, serviceName, profile string) error {
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
+	maxAttempts := 5
+	delay := 2 * time.Second
+
+	var err error
+	for i := 1; i <= maxAttempts; i++ {
+		log.Printf("[%s][%s] Checking reachability of %s (attempt %d/%d)...", profile, serviceName, addr, i, maxAttempts)
+		conn, dialErr := net.DialTimeout("tcp", addr, 2*time.Second)
+		if dialErr == nil {
+			conn.Close()
+			log.Printf("[%s][%s] Reachability check successful for %s", profile, serviceName, addr)
+			return nil
+		}
+		err = dialErr
+		if i < maxAttempts {
+			time.Sleep(delay)
+		}
+	}
+
+	return fmt.Errorf("FATAL: [%s] %s at %s is not reachable after %d attempts: %w", profile, serviceName, addr, maxAttempts, err)
 }
