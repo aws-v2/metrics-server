@@ -44,22 +44,23 @@ jobs:
           username: ${{ secrets.STAGING_USERNAME }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
-            docker network create aws_backend || true
+            docker network create aws-staging-network || true
             docker pull qarani/metrics-server:staging
             docker stop metrics-server-staging || true
             docker rm metrics-server-staging || true
             docker run -d --name metrics-server-staging \
-              --network aws_backend \
+              --network aws-staging-network \
               -p 8085:8085 \
               -e APP_PROFILE=staging \
               -e DB_HOST=postgres-staging \
               -e DB_PORT=5432 \
-              -e DB_USER=${{ secrets.STAGING_DB_USER }} \
-              -e DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }} \
+              -e DB_USER=staging_user \
+              -e DB_PASSWORD=staging_password \
               -e DB_NAME=metrics_db \
+              -e DB_SSLMODE=disable \
               -e NATS_URL=nats://nats-staging:4222 \
               -e NATS_USER=auth-server \
               -e NATS_PASSWORD=auth-secret \
-              -e INSTANCE_TOKEN_SECRET=${{ secrets.STAGING_INSTANCE_TOKEN_SECRET }} \
+              -e INSTANCE_TOKEN_SECRET=staging-secret-change-me \
               -e HTTP_PORT=8085 \
               qarani/metrics-server:staging
