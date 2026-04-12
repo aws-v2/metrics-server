@@ -94,7 +94,7 @@ func Load() (*Config, error) {
 			ConnMaxIdleTime: getEnvDuration("DB_CONN_MAX_IDLE_TIME", 10*time.Minute),
 		},
 		NATS: NATSConfig{
-			URL:      getEnv("NATS_URL", getEnv("DEV_NATS_URL", "nats://localhost:4222")),
+			URL:      getEnv("NATS_URL", getEnv("NATS_URL", "nats://localhost:4222")),
 			User:     natsUser,
 			Password: natsPassword,
 		},
