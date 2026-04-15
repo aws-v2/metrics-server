@@ -59,8 +59,8 @@ jobs:
               -e DB_NAME=metrics_db \
               -e DB_SSLMODE=disable \
               -e NATS_URL=nats://nats-staging:4222 \
-              -e NATS_USER=auth-server \
-              -e NATS_PASSWORD=auth-secret \
+              -e NATS_USER=nats-staging-user \
+              -e NATS_PASSWORD=nats-staging-password \
               -e INSTANCE_TOKEN_SECRET=staging-secret-change-me \
               -e HTTP_PORT=8085 \
               qarani/metrics-server:staging
