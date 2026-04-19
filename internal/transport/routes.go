@@ -3,7 +3,7 @@ package transport
 import "net/http"
 
 // prefix is the versioned API base path.
-const prefix = "/api/v1/metrics-server"
+const prefix = "/api/v1/metrics"
 
 
 // RegisterRoutes is the single source of truth for all HTTP route registration.
@@ -17,8 +17,10 @@ func RegisterRoutes(
 	rdsHandler *RDSHandler,
 	lambdaHandler *LambdaHandler,
 	s3Handler *S3Handler,
-	// sagemakerHandler *SageMakerHandler, // TODO: uncomment when SageMaker service is ready
-	// gameliftHandler  *GameLiftHandler,  // TODO: uncomment when GameLift service is ready
+	sagemakerHandler *SageMakerHandler,
+	gameliftHandler  *GameLiftHandler,
+	docsHandler *DocsHandler,
+
 ) {
 	// ── Health (no auth) ─────────────────────────────────────────────────────
 	mux.HandleFunc("GET "+prefix+"/health", healthHandler.Health)
@@ -44,12 +46,25 @@ func RegisterRoutes(
 	mux.HandleFunc("GET "+prefix+"/s3", auth.Wrap(s3Handler.List))
 
 	// ── SageMaker Metrics (uncomment when service is ready) ─────────────────
-	// mux.HandleFunc("POST "+prefix+"/sagemaker/ingest", auth.Wrap(sagemakerHandler.Ingest))
-	// mux.HandleFunc("GET "+prefix+"/sagemaker/{endpointId}", auth.Wrap(sagemakerHandler.GetByEndpoint))
-	// mux.HandleFunc("GET "+prefix+"/sagemaker", auth.Wrap(sagemakerHandler.List))
+	mux.HandleFunc("POST "+prefix+"/sagemaker/ingest", auth.Wrap(sagemakerHandler.Ingest))
+	mux.HandleFunc("GET "+prefix+"/sagemaker/{endpointId}", auth.Wrap(sagemakerHandler.GetByEndpoint))
+	mux.HandleFunc("GET "+prefix+"/sagemaker", auth.Wrap(sagemakerHandler.List))
 
 	// ── GameLift Metrics (uncomment when service is ready) ──────────────────
-	// mux.HandleFunc("POST "+prefix+"/gamelift/ingest", auth.Wrap(gameliftHandler.Ingest))
-	// mux.HandleFunc("GET "+prefix+"/gamelift/{fleetId}", auth.Wrap(gameliftHandler.GetByFleet))
-	// mux.HandleFunc("GET "+prefix+"/gamelift", auth.Wrap(gameliftHandler.List))
+	mux.HandleFunc("POST "+prefix+"/gamelift/ingest", auth.Wrap(gameliftHandler.Ingest))
+	mux.HandleFunc("GET "+prefix+"/gamelift/{fleetId}", auth.Wrap(gameliftHandler.GetByFleet))
+	mux.HandleFunc("GET "+prefix+"/gamelift", auth.Wrap(gameliftHandler.List))
+
+
+
+
+
+	// ── Public Docs ───────────────────────────────────────────────────────────
+	mux.HandleFunc("GET "+prefix+"/docs",       docsHandler.GetPublicManifest)
+	mux.HandleFunc("GET "+prefix+"/docs/{slug}", docsHandler.GetPublicDoc)
+
+	// ── Internal Docs ─────────────────────────────────────────────────────────
+	mux.HandleFunc("GET "+prefix+"/internal/docs",       docsHandler.GetInternalManifest)
+	mux.HandleFunc("GET "+prefix+"/internal/docs/{slug}", docsHandler.GetInternalDoc)
+
 }

@@ -468,6 +468,7 @@ type S3ScaleCandidate struct {
 	StorageUsedBytes int64  `db:"max_storage"`
 }
 
+
 // GetS3BucketsToScaleUp finds S3 buckets nearing extreme storage limits (e.g. > 100GB).
 func (r *PostgresRepository) GetS3BucketsToScaleUp(ctx context.Context) ([]S3ScaleCandidate, error) {
 	var candidates []S3ScaleCandidate
@@ -486,3 +487,126 @@ func (r *PostgresRepository) GetS3BucketsToScaleUp(ctx context.Context) ([]S3Sca
 	return candidates, err
 }
 
+
+
+
+type SageMakerScaleCandidate struct {
+	EndpointName string  `db:"endpoint_name"`
+	AvgMetricValue float64 `db:"avg_metric"`
+	TenantID string `db:"tenant_id"`
+	MetricName string `db:"metric_name"`
+	TargetValue float64 `db:"target_value"`
+	ScaleDownValue float64 `db:"scale_down_value"`
+}
+
+
+ 
+func (r *PostgresRepository) GetSageMakerEndpointsToScaleUp(ctx context.Context) ([]SageMakerScaleCandidate, error) {
+	var candidates []SageMakerScaleCandidate
+	query := `
+		SELECT 
+			m.endpoint_name,
+			AVG(m.cpu_percent) as avg_cpu,
+			p.tenant_id,
+			p.target_type,
+			p.target_id,
+			p.metric_name,
+			p.target_value
+		FROM (
+			SELECT endpoint_name, cpu_percent,
+				ROW_NUMBER() OVER(PARTITION BY endpoint_name ORDER BY created_at DESC) as rn
+			FROM sagemaker_metrics
+		) m
+		JOIN sagemaker_scaling_policies p ON m.endpoint_name = p.target_id
+		WHERE m.rn <= 3 AND p.metric_name = 'CPUUtilization' AND p.target_type = 'endpoint'
+		GROUP BY m.endpoint_name, p.tenant_id, p.target_type, p.target_id, p.metric_name, p.target_value
+		HAVING AVG(m.cpu_percent) > p.target_value AND COUNT(m.*) >= 3
+	`
+	err := r.db.SelectContext(ctx, &candidates, query)
+	return candidates, err
+}
+
+func (r *PostgresRepository) GetSageMakerEndpointsToScaleDown(ctx context.Context) ([]SageMakerScaleCandidate, error) {
+	var candidates []SageMakerScaleCandidate
+	query := `
+		SELECT 
+			m.endpoint_name,
+			AVG(m.cpu_percent) as avg_cpu,
+			p.tenant_id,
+			p.target_type,
+			p.target_id,
+			p.metric_name,
+			p.scale_down_value
+		FROM (
+			SELECT endpoint_name, cpu_percent,
+				ROW_NUMBER() OVER(PARTITION BY endpoint_name ORDER BY created_at DESC) as rn
+			FROM sagemaker_metrics
+		) m
+		JOIN sagemaker_scaling_policies p ON m.endpoint_name = p.target_id
+		WHERE m.rn <= 3 AND p.metric_name = 'CPUUtilization' AND p.target_type = 'endpoint'
+		GROUP BY m.endpoint_name, p.tenant_id, p.target_type, p.target_id, p.metric_name, p.scale_down_value
+		HAVING AVG(m.cpu_percent) < p.scale_down_value AND COUNT(m.*) >= 3
+	`
+	err := r.db.SelectContext(ctx, &candidates, query)
+	return candidates, err
+}
+
+type GameLiftScaleCandidate struct {
+	FleetID string `db:"fleet_id"`
+	AvgMetricValue float64 `db:"avg_metric"`
+	TenantID string `db:"tenant_id"`
+	MetricName string `db:"metric_name"`
+	TargetValue float64 `db:"target_value"`
+	ScaleDownValue float64 `db:"scale_down_value"`
+}
+
+
+func (r *PostgresRepository) GetGameLiftFleetsToScaleUp(ctx context.Context) ([]GameLiftScaleCandidate, error) {
+	var candidates []GameLiftScaleCandidate
+	query := `
+		SELECT 
+			m.fleet_id,
+			AVG(m.cpu_percent) as avg_cpu,
+			p.tenant_id,
+			p.target_type,
+			p.target_id,
+			p.metric_name,
+			p.target_value
+		FROM (
+			SELECT fleet_id, cpu_percent,
+				ROW_NUMBER() OVER(PARTITION BY fleet_id ORDER BY created_at DESC) as rn
+			FROM gamelift_metrics
+		) m
+		JOIN gamelift_scaling_policies p ON m.fleet_id = p.target_id
+		WHERE m.rn <= 3 AND p.metric_name = 'CPUUtilization' AND p.target_type = 'fleet'
+		GROUP BY m.fleet_id, p.tenant_id, p.target_type, p.target_id, p.metric_name, p.target_value
+		HAVING AVG(m.cpu_percent) > p.target_value AND COUNT(m.*) >= 3
+	`
+	err := r.db.SelectContext(ctx, &candidates, query)
+	return candidates, err
+}
+
+func (r *PostgresRepository) GetGameLiftFleetsToScaleDown(ctx context.Context) ([]GameLiftScaleCandidate, error) {
+	var candidates []GameLiftScaleCandidate
+	query := `
+		SELECT 
+			m.fleet_id,
+			AVG(m.cpu_percent) as avg_cpu,
+			p.tenant_id,
+			p.target_type,
+			p.target_id,
+			p.metric_name,
+			p.scale_down_value
+		FROM (
+			SELECT fleet_id, cpu_percent,
+				ROW_NUMBER() OVER(PARTITION BY fleet_id ORDER BY created_at DESC) as rn
+			FROM gamelift_metrics
+		) m
+		JOIN gamelift_scaling_policies p ON m.fleet_id = p.target_id
+		WHERE m.rn <= 3 AND p.metric_name = 'CPUUtilization' AND p.target_type = 'fleet'
+		GROUP BY m.fleet_id, p.tenant_id, p.target_type, p.target_id, p.metric_name, p.scale_down_value
+		HAVING AVG(m.cpu_percent) < p.scale_down_value AND COUNT(m.*) >= 3
+	`
+	err := r.db.SelectContext(ctx, &candidates, query)
+	return candidates, err
+}

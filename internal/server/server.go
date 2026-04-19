@@ -23,13 +23,15 @@ func New(
 	rdsHandler *transport.RDSHandler,
 	lambdaHandler *transport.LambdaHandler,
 	s3Handler *transport.S3Handler,
-	// sagemakerHandler *transport.SageMakerHandler, // TODO: uncomment when SageMaker service is ready
-	// gameliftHandler  *transport.GameLiftHandler,  // TODO: uncomment when GameLift service is ready
+	sagemakerHandler *transport.SageMakerHandler,
+	gameliftHandler  *transport.GameLiftHandler,
+	docsHandler *transport.DocsHandler,
+	
 ) *http.Server {
 	mux := http.NewServeMux()
 
 	// Register all routes through the single entry point.
-	transport.RegisterRoutes(mux, auth, healthHandler, ec2Handler, rdsHandler, lambdaHandler, s3Handler)
+	transport.RegisterRoutes(mux, auth, healthHandler, ec2Handler, rdsHandler, lambdaHandler, s3Handler, sagemakerHandler, gameliftHandler, docsHandler)
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	logger.Info("configuring HTTP server", "addr", addr)

@@ -16,6 +16,7 @@ type Config struct {
 	DB         DBConfig
 	NATS       NATSConfig
 	Server     ServerConfig
+	Eureka     EurekaConfig
 	AppProfile string
 }
 
@@ -64,6 +65,17 @@ type ServerConfig struct {
 	InstanceTokenSecret string
 }
 
+type EurekaConfig struct {
+	ServerURL         string
+	AppName           string
+	HostName          string
+	IPAddr            string
+	Port              int
+	VipAddress        string
+	InstanceID        string
+	HeartbeatInterval time.Duration
+}
+
 func Load() (*Config, error) {
 	_ = godotenv.Load()
 
@@ -73,11 +85,12 @@ func Load() (*Config, error) {
 	natsUser := getEnv("NATS_USER", "")
 	natsPassword := getEnv("NATS_PASSWORD", "")
 
-	// Standardize NATS credentials for dev/staging if not provided
 	if (appProfile == "dev" || appProfile == "staging") && natsUser == "" {
 		natsUser = "auth-server"
 		natsPassword = "auth-secret"
 	}
+
+	httpPort := getEnvInt("HTTP_PORT", 8085)
 
 	cfg := &Config{
 		AppProfile: appProfile,
@@ -94,15 +107,25 @@ func Load() (*Config, error) {
 			ConnMaxIdleTime: getEnvDuration("DB_CONN_MAX_IDLE_TIME", 10*time.Minute),
 		},
 		NATS: NATSConfig{
-			URL:      getEnv("NATS_URL", getEnv("NATS_URL", "nats://localhost:4222")),
+			URL:      getEnv("NATS_URL", "nats://localhost:4222"),
 			User:     natsUser,
 			Password: natsPassword,
 		},
 		Server: ServerConfig{
 			Port:                getEnv("PORT", "8085"),
 			ServiceName:         getEnv("SERVICE_NAME", "metrics-gateway"),
-			HTTPPort:            getEnvInt("HTTP_PORT", 8085),
+			HTTPPort:            httpPort,
 			InstanceTokenSecret: getEnv("INSTANCE_TOKEN_SECRET", "6A576E5A7234753778214125442A472D4B6150645367566B5970337336763979"),
+		},
+		Eureka: EurekaConfig{
+			ServerURL:         getEnv("EUREKA_SERVER_URL", "http://localhost:8761/eureka"),
+			AppName:           getEnv("EUREKA_APP_NAME", "METRICS-SERVICE"),
+			HostName:          getEnv("EUREKA_HOSTNAME", "localhost"),
+			IPAddr:            getEnv("EUREKA_IP_ADDR", "127.0.0.1"),
+			Port:              httpPort, // reuse the same resolved value
+			VipAddress:        getEnv("EUREKA_VIP_ADDRESS", "metrics-service"),
+			InstanceID:        getEnv("EUREKA_INSTANCE_ID", fmt.Sprintf("metrics-service:%d", httpPort)),
+			HeartbeatInterval: getEnvDuration("EUREKA_HEARTBEAT_INTERVAL", 30*time.Second),
 		},
 	}
 
@@ -143,7 +166,6 @@ func getEnvDuration(key string, defaultVal time.Duration) time.Duration {
 	return defaultVal
 }
 
-// CheckReachability performs a TCP reachability check with retries.
 func CheckReachability(host string, port int, serviceName, profile string) error {
 	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	maxAttempts := 5
