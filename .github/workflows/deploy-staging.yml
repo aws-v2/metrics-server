@@ -63,4 +63,11 @@ jobs:
               -e NATS_PASSWORD=nats-staging-password \
               -e INSTANCE_TOKEN_SECRET=staging-secret-change-me \
               -e HTTP_PORT=8085 \
+              -e EUREKA_SERVER_URL=http://discovery-server-staging:8761/eureka \
+              -e EUREKA_APP_NAME=METRICS-SERVICE \
+              -e EUREKA_HOSTNAME=metrics-server-staging \
+              -e EUREKA_IP_ADDR=metrics-server-staging \
+              -e EUREKA_VIP_ADDRESS=metrics-service \
+              -e EUREKA_INSTANCE_ID=metrics-service:8085 \
+              -e EUREKA_HEARTBEAT_INTERVAL=30s \
               qarani/metrics-server:staging
