@@ -28,6 +28,7 @@ RUN apk --no-cache add ca-certificates
 
 # Copy the binary from the builder stage
 COPY --from=builder /app/metrics-service .
+COPY --from=builder /app/docs ./docs
 
 # Expose the port
 EXPOSE 8085
