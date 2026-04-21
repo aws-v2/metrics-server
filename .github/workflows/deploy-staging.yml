@@ -74,26 +74,23 @@ jobs:
 
   open-pr-to-main:
     needs: deploy
+    
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
       - name: Create PR staging → main
         run: |
           if gh pr list --base main --head staging --state open --json number | jq -e 'length > 0' > /dev/null; then
             echo "PR already exists. Skipping..."
           else
-            COMMITS=$(git log origin/main..origin/staging --oneline 2>/dev/null | wc -l)
-                  if [ "$COMMITS" -eq 0 ]; then
-                    echo "No commits between main and staging. Skipping."
-                    exit 0
-                  fi
-                  gh pr create \
-                    --base main \
-                    --head staging \
-                    --title "chore: promote staging → main" \
-                    --body "✅ Staging deployment succeeded. Auto-generated PR for production release."
-                fi
-              env:
-                GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+            gh pr create \
+              --base main \
+              --head staging \
+              --title "chore: promote staging → main" \
+              --body "✅ Staging deployment succeeded. Auto-generated PR for production release."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
