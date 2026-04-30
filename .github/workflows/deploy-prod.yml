@@ -77,32 +77,28 @@ jobs:
           script: |
             docker network create aws-prod-network || true
             docker pull qarani/metrics-server:prod
-            docker stop metrics-server-prod || true
-            docker rm metrics-server-prod || true
-            docker run -d \
+            docker service rm metrics-server-prod || true
+            docker service create \
               --name metrics-server-prod \
               --network aws-prod-network \
-              -p 8085:8085 \
-              -e APP_PROFILE=prod \
-              -e DB_HOST=postgres-prod \
-              -e DB_PORT=5432 \
-              -e DB_USER=postgres-prod-user \
-              -e DB_PASSWORD=postgres-prod-password \
-              -e DB_NAME=metrics_db \
-              -e DB_SSLMODE=require \
-              -e NATS_URL=nats://nats-prod:4222 \
-              -e NATS_USER=nats-prod-user \
-              -e NATS_PASSWORD=nats-prod-password \
-              -e INSTANCE_TOKEN_SECRET=prod-secret-must-be-set-via-github-secrets \
-              -e HTTP_PORT=8085 \
-              -e EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
-              -e EUREKA_APP_NAME=METRICS-SERVICE \
-              -e EUREKA_HOSTNAME=metrics-server-prod \
-              -e EUREKA_IP_ADDR=metrics-server-prod \
-              -e EUREKA_VIP_ADDRESS=metrics-service \
-              -e EUREKA_INSTANCE_ID=metrics-service:8085 \
-              -e EUREKA_HEARTBEAT_INTERVAL=30s \
+              --publish published=8085,target=8085 \
+              --env APP_PROFILE=prod \
+              --env DB_HOST=postgres-prod \
+              --env DB_PORT=5432 \
+              --env DB_USER=postgres-prod-user \
+              --env DB_PASSWORD=postgres-prod-password \
+              --env DB_NAME=metrics_db \
+              --env DB_SSLMODE=require \
+              --env NATS_URL=nats://nats-prod:4222 \
+              --env NATS_USER=nats-prod-user \
+              --env NATS_PASSWORD=nats-prod-password \
+              --env INSTANCE_TOKEN_SECRET=prod-secret-must-be-set-via-github-secrets \
+              --env HTTP_PORT=8085 \
+              --env EUREKA_SERVER_URL=http://discovery-server-prod:8761/eureka \
+              --env EUREKA_APP_NAME=METRICS-SERVICE \
+              --env EUREKA_HOSTNAME=metrics-server-prod \
+              --env EUREKA_IP_ADDR=metrics-server-prod \
+              --env EUREKA_VIP_ADDRESS=metrics-service \
+              --env EUREKA_INSTANCE_ID=metrics-service:8085 \
+              --env EUREKA_HEARTBEAT_INTERVAL=30s \
               qarani/metrics-server:prod
-
-
-
