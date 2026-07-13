@@ -52,7 +52,9 @@ jobs:
       with:
         context: .
         push: true
-        tags: qarani/metrics-server:staging
+        tags: |
+          qarani/metrics-server:staging-${{ github.sha }}
+          qarani/metrics-server:staging
 
   staging-deploy:
     needs: staging-build-image
@@ -75,7 +77,7 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             docker network create aws-staging-network || true
-            docker pull qarani/metrics-server:staging
+            docker pull qarani/metrics-server:staging-${{ github.sha }}
             docker stop metrics-server-staging || true
             docker rm metrics-server-staging || true
             docker run -d --name metrics-server-staging \
@@ -100,7 +102,7 @@ jobs:
               -e EUREKA_VIP_ADDRESS=metrics-service \
               -e EUREKA_INSTANCE_ID=metrics-service:8085 \
               -e EUREKA_HEARTBEAT_INTERVAL=30s \
-              qarani/metrics-server:staging
+              qarani/metrics-server:staging-${{ github.sha }}
 
   staging-open-pr-to-main:
     needs: staging-deploy
