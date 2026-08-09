@@ -17,7 +17,8 @@ import (
 	"metrics-gateway/internal/database/postgres"
 	"metrics-gateway/internal/messaging"
 	"metrics-gateway/internal/server"
-	"metrics-gateway/internal/transport"
+	"metrics-gateway/internal/transport/handler"
+	"metrics-gateway/internal/transport/middleware"
 	"metrics-gateway/repository"
 )
 
@@ -79,35 +80,35 @@ func main() {
 	// ── 4. Initialize Layers ─────────────────────────────────────────────────
 	repo := repository.NewPostgresRepository(db)
 
-	auth := transport.NewAuthMiddleware(logger, cfg.Server.InstanceTokenSecret)
+	auth := middleware.NewAuthMiddleware( cfg.Server.InstanceTokenSecret)
 
 	healthService := application.NewHealthService(logger, repo)
-	healthHandler := transport.NewHealthHandler(logger, healthService)
+	healthHandler := handler.NewHealthHandler(logger, healthService)
 
 	ec2Service := application.NewEC2Service(logger, repo)
-	ec2Handler := transport.NewEC2Handler(logger, ec2Service)
+	ec2Handler := handler.NewEC2Handler(logger, ec2Service)
 
 	rdsService := application.NewRDSService(logger, repo)
-	rdsHandler := transport.NewRDSHandler(logger, rdsService)
+	rdsHandler := handler.NewRDSHandler(logger, rdsService)
 
 	lambdaService := application.NewLambdaService(logger, repo)
-	lambdaHandler := transport.NewLambdaHandler(logger, lambdaService)
+	lambdaHandler := handler.NewLambdaHandler(logger, lambdaService)
 
 	s3Service := application.NewS3Service(logger, repo)
-	s3Handler := transport.NewS3Handler(logger, s3Service)
+	s3Handler := handler.NewS3Handler(logger, s3Service)
 
 	sagemakerService := application.NewSageMakerService(logger, repo)
-	sagemakerHandler := transport.NewSageMakerHandler(logger, sagemakerService)
+	sagemakerHandler := handler.NewSageMakerHandler(logger, sagemakerService)
 
 	gameliftService := application.NewGameLiftService(logger, repo)
-	gameliftHandler := transport.NewGameLiftHandler(logger, gameliftService)
+	gameliftHandler := handler.NewGameLiftHandler(logger, gameliftService)
 
 	docsService := application.NewDocsService("./docs")
-	docsHandler := transport.NewDocsHandler(docsService)
+	docsHandler := handler.NewDocsHandler(docsService)
 
 	// ── 5. Initialize Billing ────────────────────────────────────────────────
 	billingService := application.NewBillingService(logger, repo)
-	billingNATSHandler := transport.NewBillingNATSHandler(logger, natsClient.Conn, billingService, cfg.AppProfile)
+	billingNATSHandler := handler.NewBillingNATSHandler(logger, natsClient.Conn, billingService, cfg.NATS.NatsPrefix)
 	if err := billingNATSHandler.Start(); err != nil {
 		logger.Error("failed to start billing NATS handler", "error", err)
 	}
@@ -128,10 +129,7 @@ func main() {
 	gameliftScaler.Start()
 	logger.Info("all scaling background workers started")
 
-	scalingPolicyHandler := transport.NewScalingPolicyNATSHandler(logger, natsClient.Conn, repo, cfg.AppProfile)
-	if err := scalingPolicyHandler.Start(); err != nil {
-		logger.Error("failed to start scaling policy NATS handler", "error", err)
-	}
+	
 
 	// ── 7. Register with Eureka ──────────────────────────────────────────────
 	for i := 1; i <= 3; i++ {

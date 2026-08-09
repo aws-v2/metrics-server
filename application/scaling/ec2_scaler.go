@@ -1,13 +1,11 @@
 package scaling
 
 import (
-	"context"
-	"encoding/json"
+	"context" 
 	"log/slog"
 	"time"
 
-	"metrics-gateway/repository"
-	"metrics-gateway/internal/messaging"
+	"metrics-gateway/repository" 
 
 	"github.com/nats-io/nats.go"
 )
@@ -60,76 +58,8 @@ func (s *EC2Scaler) Stop() {
 }
 
 func (s *EC2Scaler) evaluate() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	candidates, err := s.repo.GetEC2InstancesToScaleUp(ctx)
-	if err != nil {
-		s.logger.Error("failed to get EC2 scale candidates", "error", err)
-		return
-	}
-
-	// EC2ScalingAlarmPayload represents the struct sent to EC2 service.
-	type EC2ScalingAlarmPayload struct {
-		CorrelationID string `json:"correlation_id"`
-		TenantID      string `json:"tenant_id"`
-		Action        string `json:"action"`
-		Policy        struct {
-			TargetType     string  `json:"target_type"`
-			TargetID       string  `json:"target_id"`
-			MetricName     string  `json:"metric_name"`
-			TargetValue    float64 `json:"target_value"`
-			ScaleDownValue float64 `json:"scale_down_value"`
-			MaxInstances   int     `json:"max_instances"`
-		} `json:"policy"`
-		CurrentValue float64 `json:"current_value"`
-	}
-
-	for _, c := range candidates {
-		s.logger.Info("EC2 scale out alarm triggered", "instance", c.InstanceID, "avg_cpu", c.AvgCPUPercent)
-		
-		correlationID := "alarm-" + time.Now().Format("20060102150405.000000000") // simple unique ID without external deps
-		
-		alarm := EC2ScalingAlarmPayload{
-			CorrelationID: correlationID,
-			TenantID:      c.TenantID,
-			Action:        "scale_out",
-			CurrentValue:  c.AvgCPUPercent,
-		}
-		alarm.Policy.TargetType = c.TargetType
-		alarm.Policy.TargetID = c.TargetID
-		alarm.Policy.MetricName = c.MetricName
-		alarm.Policy.TargetValue = c.TargetValue
-		
-		payload, _ := json.Marshal(alarm)
-		
-		_ = s.nc.Publish(messaging.BuildSubject(s.profile, "ec2", "v1", "scale", "out"), payload)
-	}
-
-	downCandidates, err := s.repo.GetEC2InstancesToScaleDown(ctx)
-	if err != nil {
-		s.logger.Error("failed to get EC2 scale down candidates", "error", err)
-		return
-	}
-
-	for _, c := range downCandidates {
-		s.logger.Info("EC2 scale in alarm triggered", "instance", c.InstanceID, "avg_cpu", c.AvgCPUPercent)
-
-		correlationID := "alarm-" + time.Now().Format("20060102150405.000000000")
-
-		alarm := EC2ScalingAlarmPayload{
-			CorrelationID: correlationID,
-			TenantID:      c.TenantID,
-			Action:        "scale_in",
-			CurrentValue:  c.AvgCPUPercent,
-		}
-		alarm.Policy.TargetType = c.TargetType
-		alarm.Policy.TargetID = c.TargetID
-		alarm.Policy.MetricName = c.MetricName
-		alarm.Policy.ScaleDownValue = c.ScaleDownValue
-
-		payload, _ := json.Marshal(alarm)
-
-		_ = s.nc.Publish(messaging.BuildSubject(s.profile, "ec2", "v1", "scale", "in"), payload)
-	}
+		// TODO: 	THE underscore here shouldbe replacedwith ctx,'
+	//to get the background 
+	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	 defer cancel()
 }

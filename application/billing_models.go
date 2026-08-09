@@ -4,7 +4,10 @@ import "time"
 
 // BillingUsageRequest is the payload received from the billing service via NATS.
 type BillingUsageRequest struct {
-	ResourceID string    `json:"resource_id"` // InstanceID, FunctionID, BucketID, etc.
+	Service string `json:"service"`
+	Type string `json:"type"`
+	ResourceID string `json:"resource_id"`
+	Data interface{} `json:"data"`
 	StartTime  time.Time `json:"start_time"`
 	EndTime    time.Time `json:"end_time"`
 }

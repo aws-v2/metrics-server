@@ -1,13 +1,11 @@
 package scaling
 
 import (
-	"context"
-	"encoding/json"
+	"context" 
 	"log/slog"
 	"time"
 
-	"metrics-gateway/repository"
-	"metrics-gateway/internal/messaging"
+	"metrics-gateway/repository" 
 
 	"github.com/nats-io/nats.go"
 )
@@ -55,25 +53,9 @@ func (s *S3Scaler) Stop() {
 }
 
 func (s *S3Scaler) evaluate() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// TODO: 	THE underscore here shouldbe replacedwith ctx,'
+	//to get the background 
+	_, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	candidates, err := s.repo.GetS3BucketsToScaleUp(ctx)
-	if err != nil {
-		s.logger.Error("failed to get S3 scale candidates", "error", err)
-		return
-	}
-
-	for _, c := range candidates {
-		s.logger.Info("S3 storage expansion requested", "bucket", c.BucketID, "storage_used_bytes", c.StorageUsedBytes)
-		
-		payload, _ := json.Marshal(map[string]interface{}{
-			"bucket_id":    c.BucketID,
-			"reason":       "storage_limit_approaching",
-			"storage_used": c.StorageUsedBytes,
-			"action":       "ALLOCATE_MORE_STORAGE",
-		})
-		
-		_ = s.nc.Publish(messaging.BuildSubject(s.profile, "s3", "v1", "lifecycle", "transition"), payload)
-	}
+ 
 }

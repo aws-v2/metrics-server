@@ -37,6 +37,7 @@ type NATSConfig struct {
 	URL      string
 	User     string
 	Password string
+	NatsPrefix string
 }
 
 func (n NATSConfig) HostPort() (string, int) {
@@ -110,6 +111,7 @@ func Load() (*Config, error) {
 			URL:      getEnv("NATS_URL", "nats://localhost:4222"),
 			User:     natsUser,
 			Password: natsPassword,
+			NatsPrefix: getEnv("NATS_PREFIX","dev.v1"),
 		},
 		Server: ServerConfig{
 			Port:                getEnv("PORT", "8085"),

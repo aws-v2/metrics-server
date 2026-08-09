@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS sagemaker_metrics (
     invocations      BIGINT           NOT NULL DEFAULT 0,
     model_latency_ms DOUBLE PRECISION NOT NULL DEFAULT 0,
     cpu_percent      DOUBLE PRECISION NOT NULL DEFAULT 0,
+    endpoint_name      TEXT NOT NULL DEFAULT '',
     mem_percent      DOUBLE PRECISION NOT NULL DEFAULT 0,
     gpu_percent      DOUBLE PRECISION NOT NULL DEFAULT 0,
     gpu_mem_percent  DOUBLE PRECISION NOT NULL DEFAULT 0,

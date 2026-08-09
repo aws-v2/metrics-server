@@ -1,10 +1,13 @@
-package transport
+package handler
 
 import (
+	"fmt"
+	"log"
 	"log/slog"
 	"net/http"
 
 	"metrics-gateway/application"
+	"metrics-gateway/internal/utils"
 )
 
 // HealthHandler handles health-check HTTP requests.
@@ -23,13 +26,14 @@ func NewHealthHandler(logger *slog.Logger, service application.HealthChecker) *H
 
 // Health responds with the service health status.
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
+	requestID := r.Context().Value("requestId")
+
 	status, err := h.service.Check(r.Context())
 	if err != nil {
-		h.logger.Error("health check failed", "error", err)
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unhealthy", "error": err.Error()})
+		log.Printf("[Handler:Health] Service call, requestID %s  error %s", requestID, err.Error())
+		utils.WriteJSONError(w, http.StatusServiceUnavailable, fmt.Errorf("Unhealthy service "))
 		return
 	}
+	utils.WriteJSONSucces(w, http.StatusOK, "Fetched Public manifest succesfully", map[string]string{"status": status})
 
-	h.logger.Info("health check", "status", status)
-	writeJSON(w, http.StatusOK, map[string]string{"status": status})
 }
